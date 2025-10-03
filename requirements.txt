@@ -1,0 +1,23 @@
+# Fast-2GS: Fast 2D Gaussian Splatting Learning Library
+# Core dependencies for 2D Gaussian Splatting implementation
+
+# Deep Learning Framework
+torch>=2.0.0
+
+# Numerical Computing
+numpy>=1.21.0
+scipy>=1.8.0
+
+# Visualization and Plotting
+matplotlib>=3.5.0
+
+# Image Processing
+scikit-image>=0.19.0
+
+# Jupyter Notebook Support
+ipython>=7.0.0
+jupyter>=1.0.0
+
+# Optional: For enhanced performance
+# torchvision>=0.15.0  # Uncomment if needed for additional image utilities
+# tqdm>=4.64.0         # Uncomment for progress bars
