@@ -6,6 +6,10 @@ from scipy.ndimage import gaussian_filter
 from skimage import data
 from IPython.display import clear_output
 import time
+import imageio
+import os
+from PIL import Image
+from tqdm import tqdm
 
 def display_image(image_tensor, title="2D Gaussian Splatting"):
     """Display a PyTorch image tensor using matplotlib."""
@@ -279,16 +283,17 @@ def create_coordinate_grid(height, width, device='mps'):
     return coords.view(-1, 2)  # (H*W, 2)
 
 def optimize_fast_gaussian_splatting(target_image, max_gaussians=50000, initial_active=1000, 
-                                               num_iterations=2000, lr=0.1, device='mps'):
+                                               num_iterations=2000, lr=0.1, device='mps', 
+                                               gif_fps=10, save_gif=True):
     """
-    REAL ultra-fast Gaussian Splatting with true 1000x speedup.
+    REAL ultra-fast Gaussian Splatting with true 1000x speedup and GIF generation.
     
     Key optimizations:
     - Minimal operations
     - GPU-optimized tensor operations
     - Pre-computed constants
     - Vectorized everything
-    - No unnecessary computations
+    - GIF generation for training visualization
     """
     height, width = target_image.shape[:2]
     
@@ -303,16 +308,26 @@ def optimize_fast_gaussian_splatting(target_image, max_gaussians=50000, initial_
     optimizer = torch.optim.Adam(gaussian_model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
     
-    print(f"Starting Fast Gaussian Splatting with TRUE 1000x speedup!")
+    # Create directory for GIF frames
+    if save_gif:
+        frames_dir = "training_frames"
+        os.makedirs(frames_dir, exist_ok=True)
+        gif_frames = []
+    
+    print(f"Starting Fast Gaussian Splatting:")
     print(f"   Max Gaussians: {max_gaussians}")
     print(f"   Initial Active: {initial_active}")
     print(f"   Learning Rate: {lr}")
     print(f"   Device: {device}")
-    print(f"   Adaptation: Every 50 iterations (MAXIMUM speed!)")
+    print(f"   Adaptation: Every N iterations")
+    print(f"   GIF Generation: {'Enabled' if save_gif else 'Disabled'}")
     print("=" * 60)
     
-    # Training loop with EVERY ITERATION adaptation
-    for iteration in range(num_iterations):
+    # Training loop with tqdm progress bar and GIF frame capture
+    pbar = tqdm(range(num_iterations), desc="Training Fast 2D Gaussian Splatting", 
+                unit="iter", ncols=150, bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}] {postfix}')
+    
+    for iteration in pbar:
         # PHASE 1: TRAIN (optimize parameters)
         optimizer.zero_grad()
         
@@ -351,8 +366,8 @@ def optimize_fast_gaussian_splatting(target_image, max_gaussians=50000, initial_
                 optimizer = torch.optim.Adam(gaussian_model.parameters(), lr=lr)
                 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
         
-        # Update visualization every 200 iterations (less frequent for speed)
-        if iteration % 1 == 0:
+        # Capture frames for GIF (every 10 iterations to keep file size reasonable)
+        if save_gif and iteration % 10 == 0:
             rendered = rendered_flat.view(height, width, 3)
             
             # Convert to numpy
@@ -361,18 +376,17 @@ def optimize_fast_gaussian_splatting(target_image, max_gaussians=50000, initial_
                 rendered_np = rendered.detach().cpu().numpy()
             else:
                 target_np = target_image.detach().numpy()
-                rendered_np = rendered.detach().numpy()
+                rendered_np = rendered.detach().cpu().numpy()
             
-            clear_output(wait=True)
-            
-            fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+            # Create figure for GIF frame
+            fig, axes = plt.subplots(1, 3, figsize=(12, 4))
             
             axes[0].imshow(np.clip(target_np, 0, 1))
             axes[0].set_title("Target")
             axes[0].axis('off')
             
             axes[1].imshow(np.clip(rendered_np, 0, 1))
-            axes[1].set_title(f"REAL Ultra-Fast Gaussian Splatting\\nIter {iteration}, Loss: {loss.item():.6f}\\nActive: {gaussian_model.num_active}/{max_gaussians}")
+            axes[1].set_title(f"Fast 2D Gaussian Splatting\\nIter {iteration}, Loss: {loss.item():.6f}\\nActive: {gaussian_model.num_active}/{max_gaussians}")
             axes[1].axis('off')
             
             diff = np.abs(target_np - rendered_np)
@@ -381,10 +395,65 @@ def optimize_fast_gaussian_splatting(target_image, max_gaussians=50000, initial_
             axes[2].axis('off')
             
             plt.tight_layout()
-            plt.show()
             
-            print(f"Iteration {iteration}/{num_iterations}, Loss: {loss.item():.6f}")
-            print(f"Active Gaussians: {gaussian_model.num_active}/{max_gaussians}, Device: {device}")
+            # Save frame to memory buffer and convert to numpy array
+            import io
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', dpi=80, bbox_inches='tight')
+            buf.seek(0)
+            
+            # Convert buffer to numpy array and then to PIL Image
+            buf_data = buf.getvalue()
+            buf.close()
+            plt.close(fig)
+            
+            # Create PIL Image from buffer data
+            frame = Image.open(io.BytesIO(buf_data))
+            gif_frames.append(frame)
+        
+        # Update progress bar with current metrics
+        pbar.set_postfix_str(f"Loss: {loss.item():.6f}, Active Splats: {gaussian_model.num_active}/{max_gaussians}, Device: {device}")
+        
+        # Update progress bar description for adaptations
+        if iteration % 50 == 0 and iteration > 0:
+            pbar.set_description("Training Fast 2D Gaussian Splatting (Adapting)")
+        else:
+            pbar.set_description("Training Fast 2D Gaussian Splatting")
+    
+    # Close progress bar
+    pbar.close()
+    
+    # Generate GIF
+    if save_gif and gif_frames:
+        print(f"\nGenerating training GIF with {len(gif_frames)} frames...")
+        gif_filename = f"fast_2d_gaussian_splatting_training_{int(time.time())}.gif"
+        
+        try:
+            # Save GIF
+            gif_frames[0].save(
+                gif_filename,
+                save_all=True,
+                append_images=gif_frames[1:],
+                duration=1000//gif_fps,  # Convert fps to duration in ms
+                loop=0
+            )
+            
+            print(f"Training GIF saved as: {gif_filename}")
+            print(f"GIF contains {len(gif_frames)} frames at {gif_fps} FPS")
+            
+        except Exception as e:
+            print(f"Error saving GIF: {e}")
+            print("Continuing without GIF generation...")
+        
+        finally:
+            # Clean up frames
+            for frame in gif_frames:
+                frame.close()
+            
+            # Clean up frames directory
+            import shutil
+            if os.path.exists(frames_dir):
+                shutil.rmtree(frames_dir)
     
     return gaussian_model
 
@@ -405,13 +474,15 @@ if __name__ == '__main__':
     target = load_astronaut_image(device, target_size=128)
     display_image(target, "Target Image (Astronaut)")
 
-    # Run REAL ultra-fast optimization
-    real_ultra_fast_model = fast_gaussian_splatting(
+    # Run REAL ultra-fast optimization with GIF generation
+    real_ultra_fast_model = optimize_fast_gaussian_splatting(
         target, 
         max_gaussians=10000,  # Pre-allocate 10k Gaussians
-        initial_active=500,   # Start with 500 active
+        initial_active=350,   # Start with 500 active
         num_iterations=2000,  # More iterations for every-iteration adaptation
         lr=0.01,              # High learning rate
-        device=device
+        device=device,
+        gif_fps=10,           # GIF frame rate
+        save_gif=True         # Enable GIF generation
     )
     

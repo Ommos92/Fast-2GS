@@ -2,6 +2,13 @@
 
 A comprehensive learning library that demonstrates the fundamental concepts behind Gaussian Splatting using 2D images. This project focuses on first principles and core algorithms without the complexity of 3D rendering pipelines, camera calibration, or correspondence matching frameworks like COLMAP.
 
+<p align="center">
+  <img src="assets/fast_2d_gaussian_splatting_training.gif" alt="Fast 2D Gaussian Splatting Training Visualization" width="1200"/>
+</p>
+
+**Above:** *Training progress of Fast-2GS reconstructing an image using adaptive 2D Gaussian splatting. Left: Target image. Center: Model reconstruction. Right: Difference map. The GIF shows the model learning and refining its representation over time.*
+
+
 ## Purpose
 
 Fast-2GS is designed to help you understand:
@@ -156,17 +163,6 @@ class UltraFastGaussian2D(nn.Module):
         self.active_mask = torch.zeros(max_gaussians, dtype=torch.bool)
 ```
 
-### MPS Acceleration
-```python
-# Automatic device selection
-if torch.backends.mps.is_available():
-    device = 'mps'
-elif torch.cuda.is_available():
-    device = 'cuda'
-else:
-    device = 'cpu'
-```
-
 ## Results and Visualization
 
 The library provides real-time visualization of:
@@ -182,8 +178,6 @@ The library provides real-time visualization of:
 1. **Neural Rendering Fundamentals**: How to represent images as neural fields
 2. **Optimization Techniques**: Gradient-based optimization for rendering
 3. **Adaptive Algorithms**: Dynamic resource allocation based on error
-4. **Performance Engineering**: GPU acceleration and memory optimization
-5. **Real-time Systems**: Balancing quality and speed for interactive applications
 
 ### Prerequisites
 - Basic Python programming
