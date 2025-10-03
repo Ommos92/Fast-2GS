@@ -33,8 +33,7 @@ Fast-2GS is designed to help you understand:
 
 ### Learning-Focused Design
 - **First Principles**: No complex frameworks or dependencies
-- **Educational Examples**: Step-by-step implementations with detailed comments
-- **Performance Comparisons**: Multiple optimization strategies side-by-side
+- **Educational Examples**: Step-by-step implementations
 - **Interactive Notebooks**: Jupyter notebooks for hands-on learning
 
 ## Project Structure
